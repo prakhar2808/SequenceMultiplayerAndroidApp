@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "217527301885",
+    "firebase_url": "https://sequencemultiplayer.firebaseio.com",
+    "project_id": "sequencemultiplayer",
+    "storage_bucket": "sequencemultiplayer.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:217527301885:android:b0f99394a9763b8e253094",
+        "android_client_info": {
+          "package_name": "com.example.sequencemultiplayer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "217527301885-pcb5tsr5odpru5m0v0vt2eug91peptps.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sequencemultiplayer",
+            "certificate_hash": "69ada3fedb17a37e2b6faafdf3757c84472aca8b"
+          }
+        },
+        {
+          "client_id": "217527301885-qgmd2hb92tqgk69gssi8p7niupe10v9s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDU9kmOsgMifr--vI8g--2cV8iVOImR0-c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "217527301885-qgmd2hb92tqgk69gssi8p7niupe10v9s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
