@@ -1,17 +1,12 @@
 package com.example.sequencemultiplayer;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -33,8 +28,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.io.InputStream;
-
 import static com.example.sequencemultiplayer.FirebaseAuthUser.clearFirebaseUserFromGoogleAuth;
 import static com.example.sequencemultiplayer.FirebaseAuthUser.setFirebaseUserFromGoogleAuth;
 
@@ -46,8 +39,8 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
     private GoogleApiClient mGoogleApiClient;
     //Sign in Button
     com.google.android.gms.common.SignInButton googleSignInButton;
-    // Sign out button.
-    Button signOutButton;
+//    // Sign out button.
+//    Button signOutButton;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -95,7 +88,6 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
         View v = inflater.inflate(R.layout.google_auth_fragment, parent, false);
 
         googleSignInButton = v.findViewById(R.id.googleSignInButton);
-        signOutButton = v.findViewById(R.id.signOutButton);
 
         // OnClick Listener for sign in button.
         googleSignInButton.setOnClickListener(new View.OnClickListener() {
@@ -107,20 +99,20 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
 
         });
 
-        //OnClick Listener for sign out button.
-        signOutButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
-                        new ResultCallback<Status>() {
-                            @Override
-                            public void onResult(Status status) {
-                                clearFirebaseUserFromGoogleAuth();
-                                updateUI(false);
-                            }
-                        });
-            }
-        });
+//        //OnClick Listener for sign out button.
+//        signOutButton.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
+//                        new ResultCallback<Status>() {
+//                            @Override
+//                            public void onResult(Status status) {
+//                                clearFirebaseUserFromGoogleAuth();
+//                                updateUI(false);
+//                            }
+//                        });
+//            }
+//        });
         return v;
     }
 
@@ -190,7 +182,6 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
             googleSignInButton.setVisibility(View.GONE);
         } else {
             googleSignInButton.setVisibility(View.VISIBLE);
-            signOutButton.setVisibility(View.GONE);
         }
     }
 

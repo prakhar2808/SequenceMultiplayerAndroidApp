@@ -40,16 +40,24 @@ public class LobbyActivity extends AppCompatActivity {
 
     String playerName="";
     String playerID="";
+    // RoomID the player either creates or joins in.
     String roomID="";
 
     FirebaseDatabase database;
+    // Reference to the room the player wants to join.
     DatabaseReference roomRef;
+    // Reference to the list of all the rooms existing.
+    // Used to check if roomID entered by user is valid.
     DatabaseReference roomsRef;
-    DatabaseReference playerIDRef;
 
+    // Player details.
     ImageView imgProfilePic;
     TextView welcomeText;
+
+    // To create a room
     Button createRoomButton;
+
+    // To join a room using roomID
     TextView fillRoomID;
     Button joinRoomByRoomIDButton;
 
@@ -62,6 +70,7 @@ public class LobbyActivity extends AppCompatActivity {
         welcomeText = findViewById(R.id.welcomeText);
         createRoomButton = findViewById(R.id.createRoomButton);
         fillRoomID = findViewById(R.id.fillRoomID);
+        fillRoomID.setText("");
         joinRoomByRoomIDButton = findViewById(R.id.joinRoomByRoomIDButton);
 
         welcomeText.setText("Welcome " + getDisplayName());
@@ -111,10 +120,10 @@ public class LobbyActivity extends AppCompatActivity {
         });
     }
 
-    private void incrementPlayersCountAndJoinRoom(Boolean roomHost) {
+    private void incrementPlayersCountAndJoinRoom(final Boolean roomHost) {
         playerName = getDisplayName();
         playerID = getPlayerID();
-        roomRef = database.getReference("rooms/" + roomID + "/players_count");
+        roomRef = database.getReference("rooms/" + roomID);
         Log.d("Lobby", "Codebase 1");
         addRoomEventListener();
         Log.d("Lobby", "Codebase 2");
@@ -127,14 +136,19 @@ public class LobbyActivity extends AppCompatActivity {
         roomRef.runTransaction(new Transaction.Handler() {
             @Override
             public Transaction.Result doTransaction(final MutableData currentData) {
-                if (currentData.getValue() == null) {
-                    currentData.setValue(1);
+                //TODO: Check if the player is already not in some other room.
+                if (currentData.child("players_count").getValue() == null) {
+                    currentData.child("players_count").setValue(1);
                 }
                 else {
-                    currentData.setValue((Long) currentData.getValue() + 1);
-                    if((Long)currentData.getValue() > 4)
+                    Long playerNumber = (Long) currentData.child("players_count").getValue() + 1;
+                    currentData.child("players_count").setValue(playerNumber);
+                    if(playerNumber > 4)
                         Transaction.abort();
                 }
+                currentData.child("players").child(playerID).child("name").setValue(playerName);
+                currentData.child("players").child(playerID).child("img_url").setValue(getImgProfilePicURL());
+                currentData.child("players").child(playerID).child("is_host").setValue(roomHost);
                 return Transaction.success(currentData);
             }
             @Override
@@ -154,11 +168,10 @@ public class LobbyActivity extends AppCompatActivity {
 
     private void joinRoom() {
         Log.d("Lobby", "Codebase 7");
-        database.getReference(
-                "rooms/" + roomID + "/players/" + playerID + "/name").setValue(playerName);
-        database.getReference(
-                "rooms/" + roomID + "/players/" + playerID + "/imgProfilePicURL")
-                 .setValue(getImgProfilePicURL());
+        Intent intent = new Intent(getApplicationContext(), RoomActivity.class);
+        intent.putExtra("roomID", roomID);
+        intent.putExtra("playerID", playerID);
+        startActivity(intent);
     }
 
     private void addRoomEventListener() {
@@ -167,11 +180,9 @@ public class LobbyActivity extends AppCompatActivity {
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 //Join the room
                 Log.d("Lobby", "Codebase 4");
-//                createRoomButton.setText("CREATE ROOM");
-//                createRoomButton.setEnabled(true);
-//                Intent intent = new Intent(getApplicationContext(), Main3Activity.class);
-//                intent.putExtra("roomID", roomID);
-//                startActivity(intent);
+                createRoomButton.setText("CREATE ROOM");
+                createRoomButton.setEnabled(true);
+                fillRoomID.setText("");
                 Log.d("Lobby", "Codebase 5");
             }
             @Override
@@ -179,66 +190,6 @@ public class LobbyActivity extends AppCompatActivity {
                 createRoomButton.setText("CREATE ROOM");
                 createRoomButton.setEnabled(false);
                 Toast.makeText(LobbyActivity.this, "Error!", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    @Override
-    public void onBackPressed() {
-        new AlertDialog.Builder(this)
-                .setMessage("Are you sure you want to exit?")
-                .setCancelable(false)
-                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        deletePlayerFromRoom();
-                    }
-                })
-                .setNegativeButton("No", null)
-                .show();
-    }
-
-    private void deletePlayerFromRoom() {
-        //Transaction to delete player
-        playerIDRef = database.getReference("rooms/" + roomID + "/players/" + playerID);
-        playerIDRef.runTransaction(new Transaction.Handler() {
-            @Override
-            public Transaction.Result doTransaction(final MutableData currentData) {
-                currentData.setValue(null);
-                return Transaction.success(currentData);
-            }
-            @Override
-            public void onComplete(DatabaseError firebaseError, boolean committed, DataSnapshot currentData) {
-                if (firebaseError != null) {
-                    Log.d("Lobby","Firebase player deletion failed.");
-                } else if(committed) {
-                    Log.d("Lobby","Firebase player deletion succeeded.");
-                }
-                else {
-                    Log.d("Lobby", "Firebase transaction to delete player aborted");
-                }
-            }
-        });
-
-        //Transaction to decrement players count
-        Toast.makeText(LobbyActivity.this, roomID, Toast.LENGTH_SHORT).show();
-        roomRef.runTransaction(new Transaction.Handler() {
-            @Override
-            public Transaction.Result doTransaction(final MutableData currentData) {
-                if (currentData.getValue() != null) {
-                    currentData.setValue((Long) currentData.getValue() - 1);
-                }
-                return Transaction.success(currentData);
-            }
-            @Override
-            public void onComplete(DatabaseError firebaseError, boolean committed, DataSnapshot currentData) {
-                if (firebaseError != null) {
-                    Log.d("Lobby","Firebase counter decrement failed.");
-                } else if(committed) {
-                    Log.d("Lobby","Firebase counter decrement succeeded.");
-                }
-                else {
-                    Log.d("Lobby", "Firebase transaction to decrement player aborted");
-                }
             }
         });
     }
