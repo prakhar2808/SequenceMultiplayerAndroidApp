@@ -1,9 +1,11 @@
 package com.example.sequencemultiplayer;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -21,6 +23,12 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.firebase.FirebaseError;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -29,6 +37,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Transaction;
 import com.google.firebase.database.ValueEventListener;
+import com.squareup.picasso.Picasso;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -36,10 +45,14 @@ import java.util.List;
 
 import static com.example.sequencemultiplayer.FirebaseAuthUser.*;
 
-public class LobbyActivity extends AppCompatActivity {
+public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener{
 
     String playerName="";
     String playerID="";
+
+    // Sign Out button.
+    Button signOutButton;
+
     // RoomID the player either creates or joins in.
     String roomID="";
 
@@ -61,11 +74,18 @@ public class LobbyActivity extends AppCompatActivity {
     TextView fillRoomID;
     Button joinRoomByRoomIDButton;
 
+    SharedPreferencesHelper sharedpreferences;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.lobby_activity);
 
+        sharedpreferences = new SharedPreferencesHelper(this);
+
+        sharedpreferences.putString("last_activity", "LobbyActivity");
+
+        signOutButton = findViewById(R.id.signOutButton);
         imgProfilePic = findViewById(R.id.imgProfilePic);
         welcomeText = findViewById(R.id.welcomeText);
         createRoomButton = findViewById(R.id.createRoomButton);
@@ -76,10 +96,11 @@ public class LobbyActivity extends AppCompatActivity {
         welcomeText.setText("Welcome " + getDisplayName());
 
         if(getImgProfilePicURL() != "") {
-            new LoadProfileImage(imgProfilePic).execute(getImgProfilePicURL());
+            Picasso.with(this).load(getImgProfilePicURL()).into(imgProfilePic);
+//            new LoadProfileImage(imgProfilePic).execute(getImgProfilePicURL());
         }
         else {
-            imgProfilePic.setImageResource(R.drawable.user_default);
+            Picasso.with(this).load(R.drawable.user_default).into(imgProfilePic);
         }
         database = FirebaseDatabase.getInstance();
 
@@ -118,8 +139,19 @@ public class LobbyActivity extends AppCompatActivity {
                 incrementPlayersCountAndJoinRoom(true);
             }
         });
+
+        //OnClick Listener for sign out button.
+        signOutButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(getIntent().hasExtra("googleSignIn")) {
+                    googleSignOut();
+                }
+            }
+        });
     }
 
+    // Increment players_count by 1 and add player to room.
     private void incrementPlayersCountAndJoinRoom(final Boolean roomHost) {
         playerName = getDisplayName();
         playerID = getPlayerID();
@@ -148,7 +180,6 @@ public class LobbyActivity extends AppCompatActivity {
                 }
                 currentData.child("players").child(playerID).child("name").setValue(playerName);
                 currentData.child("players").child(playerID).child("img_url").setValue(getImgProfilePicURL());
-                currentData.child("players").child(playerID).child("is_host").setValue(roomHost);
                 return Transaction.success(currentData);
             }
             @Override
@@ -157,7 +188,7 @@ public class LobbyActivity extends AppCompatActivity {
                     Log.d("Lobby","Firebase counter increment failed.");
                 } else if(committed) {
                     Log.d("Lobby","Firebase counter increment succeeded.");
-                    joinRoom();
+                    goToRoomActivity();
                 }
                 else {
                     Log.d("Lobby", "Firebase transaction to increment player aborted");
@@ -166,14 +197,18 @@ public class LobbyActivity extends AppCompatActivity {
         });
     }
 
-    private void joinRoom() {
+    // Go to room activity.
+    private void goToRoomActivity() {
         Log.d("Lobby", "Codebase 7");
         Intent intent = new Intent(getApplicationContext(), RoomActivity.class);
-        intent.putExtra("roomID", roomID);
-        intent.putExtra("playerID", playerID);
+
+        sharedpreferences.putString("roomID", roomID);
+        sharedpreferences.putString("playerID", playerID);
+
         startActivity(intent);
     }
 
+    // Event listener for room when user returns back from inside a room after leaving it.
     private void addRoomEventListener() {
         roomRef.addValueEventListener(new ValueEventListener() {
             @Override
@@ -194,8 +229,64 @@ public class LobbyActivity extends AppCompatActivity {
         });
     }
 
+    // SignOut method for Google Auth.
+    private void googleSignOut() {
+        Log.d("LobbyLogout", "Codebase 0");
+        // Configure sign-in to request the user's ID, email address, and basic
+        // profile. ID and basic profile are included in DEFAULT_SIGN_IN.
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        Log.d("LobbyLogout", "Codebase 1");
+        // Build a GoogleApiClient with access to the Google Sign-In API and the
+        // options specified by gso.
+        final GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(LobbyActivity.this)
+                .enableAutoManage(LobbyActivity.this /* FragmentActivity */, this /* OnConnectionFailedListener */)
+                .addApi(Auth.GOOGLE_SIGN_IN_API,gso)
+                .build();
+        Log.d("LobbyLogout", "Codebase 2");
+        mGoogleApiClient.connect();
+        Log.d("LobbyLogout", "Codebase 3");
+        mGoogleApiClient.registerConnectionCallbacks(new GoogleApiClient.ConnectionCallbacks() {
+            @Override
+            public void onConnected(@Nullable Bundle bundle) {
+                if(mGoogleApiClient.isConnected()) {
+                    Log.d("LobbyLogout", "Codebase 4");
+                    Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(new ResultCallback<Status>() {
+                        @Override
+                        public void onResult(@NonNull Status status) {
+                            if (status.isSuccess()) {
+                                Log.d("LobbyLogout", "Codebase 5. Logged Out.");
+                                clearFirebaseUserFromGoogleAuth();
+
+                                sharedpreferences.clear();
+
+                                Intent intent = new Intent(LobbyActivity.this, MainActivity.class);
+                                startActivity(intent);
+                                Log.d("LobbyLogout", "Codebase 6");
+                                finish();
+                            }
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onConnectionSuspended(int i) {
+                Log.d("LobbyLogout", "Google API Client Connection Suspended");
+            }
+        });
+    }
+    // Helper method for Google sign out.
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        // An unresolvable error has occurred and Google APIs (including Sign-In) will not
+        // be available.
+        Log.d("Gmail", "onConnectionFailed:" + connectionResult);
+    }
+
     /**
-     * Background Async task to load user profile picture from url
+     * Background Async task class to load user profile picture from url
      * */
     public class LoadProfileImage extends AsyncTask<String, Void, Bitmap> {
         ImageView bmImage;
@@ -226,5 +317,4 @@ public class LobbyActivity extends AppCompatActivity {
             }
         }
     }
-
 }

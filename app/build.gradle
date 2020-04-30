@@ -39,6 +39,8 @@ dependencies {
 //    implementation 'com.google.firebase:firebase-core:16.0.0'
     implementation 'com.google.firebase:firebase-auth:19.3.1'
     implementation 'com.google.android.gms:play-services-auth:15.0.1'
+
+    implementation 'com.squareup.picasso:picasso:2.3.3'
 }
 
 //For google auth

@@ -70,6 +70,16 @@
             android:layout_marginTop="@dimen/g_top_margin"
             android:text="Create Room" />
 
+
+        <Button
+            android:id="@+id/signOutButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="@dimen/g_top_margin"
+            android:text="Sign Out" />
+
     </LinearLayout>
+
 
 </RelativeLayout>

@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -21,33 +20,30 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.OptionalPendingResult;
 import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import static com.example.sequencemultiplayer.FirebaseAuthUser.clearFirebaseUserFromGoogleAuth;
 import static com.example.sequencemultiplayer.FirebaseAuthUser.setFirebaseUserFromGoogleAuth;
 
-public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnConnectionFailedListener{
+public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnConnectionFailedListener {
 
     // Request sign in code. Could be anything as you required.
     public static final int requestSignInCode = 7;
     // Google API Client object.
     private GoogleApiClient mGoogleApiClient;
     //Sign in Button
-    com.google.android.gms.common.SignInButton googleSignInButton;
-//    // Sign out button.
-//    Button signOutButton;
+    public com.google.android.gms.common.SignInButton googleSignInButton;
+    private GoogleSignInOptions gso;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Configure sign-in to request the user's ID, email address, and basic
         // profile. ID and basic profile are included in DEFAULT_SIGN_IN.
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestEmail()
                 .build();
@@ -62,6 +58,7 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
     @Override
     public void onStart() {
         super.onStart();
+        mGoogleApiClient.connect();
         OptionalPendingResult<GoogleSignInResult> opr = Auth.GoogleSignInApi.silentSignIn(mGoogleApiClient);
         if (opr.isDone()) {
             // If the user's cached credentials are valid, the OptionalPendingResult will be "done"
@@ -88,7 +85,7 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
         View v = inflater.inflate(R.layout.google_auth_fragment, parent, false);
 
         googleSignInButton = v.findViewById(R.id.googleSignInButton);
-
+        googleSignInButton.setVisibility(View.GONE);
         // OnClick Listener for sign in button.
         googleSignInButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -98,21 +95,6 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
             }
 
         });
-
-//        //OnClick Listener for sign out button.
-//        signOutButton.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
-//                        new ResultCallback<Status>() {
-//                            @Override
-//                            public void onResult(Status status) {
-//                                clearFirebaseUserFromGoogleAuth();
-//                                updateUI(false);
-//                            }
-//                        });
-//            }
-//        });
         return v;
     }
 
@@ -152,7 +134,7 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
             DatabaseReference playerRef = FirebaseDatabase.getInstance()
                     .getReference("players/"+playerID);
             addEventListener(playerRef, playerID);
-            playerRef.setValue("");
+            playerRef.setValue(FirebaseAuthUser.getDisplayName());
         }
         Log.d("Gmail","Codebase 0.8");
     }
@@ -165,7 +147,10 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
                 // Success --> Continue to next screen after saving player name.
                 if(!playerID.equals("")) {
                     Log.d("Gmail", "Codebase 14");
-                    startActivity(new Intent(getActivity().getApplicationContext(), LobbyActivity.class));
+                    Intent intent = new Intent(getActivity().getApplicationContext(),
+                            LobbyActivity.class);
+                    intent.putExtra("googleSignIn", true);
+                    startActivity(intent);
                     getActivity().finish();
                 }
             }
@@ -178,9 +163,7 @@ public class GoogleAuthFragment extends Fragment implements GoogleApiClient.OnCo
 
 
     private void updateUI(boolean signedIn) {
-        if (signedIn) {
-            googleSignInButton.setVisibility(View.GONE);
-        } else {
+        if (!signedIn) {
             googleSignInButton.setVisibility(View.VISIBLE);
         }
     }

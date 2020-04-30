@@ -81,7 +81,7 @@ public class FirebaseAuthUser {
 
     public static void clearFirebaseUserFromGoogleAuth() {
         firebaseAuth.signOut();
-        Log.d("Gmail", "Signed Out!");
+        Log.d("LobbyLogout", "Signed Out!");
         firebaseUser = null;
         playerID = "";
     }
