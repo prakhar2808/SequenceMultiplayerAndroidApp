@@ -8,6 +8,8 @@ import androidx.fragment.app.FragmentManager;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Window;
+import android.view.WindowManager;
 
 
 public class MainActivity extends FragmentActivity {
@@ -22,6 +24,11 @@ public class MainActivity extends FragmentActivity {
     protected void onCreate(Bundle savedInstanceState) {
         Log.d("Gmail","Codebase 0");
         super.onCreate(savedInstanceState);
+        //For full screen mode.
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
         setContentView(R.layout.activity_main);
 
         sharedpreferences = new SharedPreferencesHelper(this);

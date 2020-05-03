@@ -15,6 +15,8 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -49,6 +51,7 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
 
     String playerName="";
     String playerID="";
+    Boolean isRoomHost;
 
     // Sign Out button.
     Button signOutButton;
@@ -79,6 +82,10 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        //For full screen mode.
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.lobby_activity);
 
         sharedpreferences = new SharedPreferencesHelper(this);
@@ -160,7 +167,11 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
         addRoomEventListener();
         Log.d("Lobby", "Codebase 2");
         if(roomHost) {
+            isRoomHost = true;
             roomRef.setValue(0);
+        }
+        else {
+            isRoomHost = false;
         }
         Log.d("Lobby", "Codebase 3 Room id = " + roomID);
         Log.d("Lobby", "Codebase 6");
@@ -180,6 +191,10 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
                 }
                 currentData.child("players").child(playerID).child("name").setValue(playerName);
                 currentData.child("players").child(playerID).child("img_url").setValue(getImgProfilePicURL());
+                currentData.child("players").child(playerID).child("is_host").setValue(roomHost);
+//                if(roomHost) {
+//                    currentData.child("is_host_present").setValue(true);
+//                }
                 return Transaction.success(currentData);
             }
             @Override
@@ -204,6 +219,7 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
 
         sharedpreferences.putString("roomID", roomID);
         sharedpreferences.putString("playerID", playerID);
+        sharedpreferences.putString("isRoomHost", isRoomHost.toString());
 
         startActivity(intent);
     }
