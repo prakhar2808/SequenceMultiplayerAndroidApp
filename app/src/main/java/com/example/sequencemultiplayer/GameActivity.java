@@ -3,6 +3,7 @@ package com.example.sequencemultiplayer;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -73,6 +74,7 @@ public class GameActivity extends Activity {
         sequencesCount = 0;
 
         sharedpreferences = new SharedPreferencesHelper(this);
+        sharedpreferences.putString("last_activity", "LobbyActivity");
 
         sharedpreferences.putString("lastMovePerformed", "-1");
         lastMovePerformed = -1L;
@@ -154,7 +156,7 @@ public class GameActivity extends Activity {
             @NonNull
             @Override
             public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                mutableData.child("moves").child("0").setValue("TURN 0 TAKE 11");
+                mutableData.child("moves").child("0").setValue("TURN 0 TAKE 12");
                 return Transaction.success(mutableData);
             }
 
@@ -182,7 +184,7 @@ public class GameActivity extends Activity {
                             .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int id) {
                                     // Add won other player to database
-                                    deletePlayerFromRoom();
+                                    deletePlayerFromRoom(true);
                                 }
                             })
                             .show();
@@ -208,12 +210,17 @@ public class GameActivity extends Activity {
                     String move = dataSnapshot.child(Long.toString(lastMovePerformed+1)).getValue().toString();
                     Log.d("GameMove", move+ " " + (lastMovePerformed+1));
                     if(move.substring(0,6).equals("TURN " + myColor)) {
+                        gameView.whoseTurn.setText("Your Turn");
+                        gameView.border.setColor(Color.GREEN); //white background
+                        gameView.border.setStroke(1, Color.GREEN); //black border with full opacity
                         // Perform turn and add "PUT NEXT".
                         playCardTouched = -1;
                         // Check if any card in player's hand is occupied on both instances.
                         // If yes, then replace with a new card from the deck.
-                        setScreenClickable();
                         nextCardInDeckIndex = Integer.parseInt(move.split(" ")[3]);
+                        // Check if all the cards in hand have atleast one empty occurence
+                        checkIfAllHandCardsHaveAnEmptyOccurrence();
+                        setScreenClickable();
                         ++lastMovePerformed;
                         break;
                         // TODO_LATER : If next doesn't reply then next, ..
@@ -238,6 +245,24 @@ public class GameActivity extends Activity {
 
             }
         });
+    }
+
+    private void checkIfAllHandCardsHaveAnEmptyOccurrence() {
+        for(int i=0; i<6; i++) {
+            int card1 = Integer.parseInt(gameView.playCards[i].value.split(" ")[0]);
+            int card2 = Integer.parseInt(gameView.playCards[i].value.split(" ")[1]);
+            while (card1 < 100
+                    && gameView.cards[card1 / 10][card1 % 10].isOccupied
+                    && gameView.cards[card2 / 10][card2 % 10].isOccupied) {
+                gameView.playCards[i].value =
+                        sharedpreferences.getString("deckCard" + nextCardInDeckIndex, "null");
+                ++nextCardInDeckIndex;
+                card1 = Integer.parseInt(gameView.playCards[i].value.split(" ")[0]);
+                card2 = Integer.parseInt(gameView.playCards[i].value.split(" ")[1]);
+                Log.d("GameRepCard", nextCardInDeckIndex + " " + card1 + " " + card2);
+            }
+        }
+        gameView.updateplayCards();
     }
 
     // Return the card which the player touched
@@ -294,7 +319,8 @@ public class GameActivity extends Activity {
                             // One-eyed jack
                             if(tokens[0].equals("100") || tokens[0].equals("101")) {
                                 if(gameView.cards[i][j].isOccupied
-                                        && gameView.cards[i][j].occupier != myColor) {
+                                        && gameView.cards[i][j].occupier != myColor
+                                        && !gameView.cards[i][j].isInSequence) {
                                     gameView.cards[i][j].setOpacity(255);
                                 }
                                 else {
@@ -339,7 +365,8 @@ public class GameActivity extends Activity {
                     // One eyed-jack
                     else if(tokens[0].equals("100") || tokens[0].equals("101")) {
                         if(gameView.cards[touchX][touchY].isOccupied
-                                && gameView.cards[touchX][touchY].occupier != myColor) {
+                                && gameView.cards[touchX][touchY].occupier != myColor
+                                && !gameView.cards[touchX][touchY].isInSequence) {
                             screenClickable = false;
                             updateGameBoardRemove(touchX, touchY);
                              takeNextCardAndAddTurnToDatabase("REMOVE", touchX, touchY);
@@ -382,17 +409,15 @@ public class GameActivity extends Activity {
             movesRef.child(Long.toString(localLastMovePerformed + 1)).setValue("REMOVE " + touchX + " " + touchY);
         }
         Log.d("GameMove", "Performed move at " + touchX + " " + touchY);
+
+        gameView.whoseTurn.setText("Other's Turn");
+        gameView.border.setColor(Color.RED); //white background
+        gameView.border.setStroke(1, Color.RED); //black border with full opacity
         // Pick next card.
-        int card1, card2;
-        do {
-            gameView.playCards[playCardTouched].value =
-                    sharedpreferences.getString("deckCard" + nextCardInDeckIndex, "null");
-            ++nextCardInDeckIndex;
-            card1 = Integer.parseInt(gameView.playCards[playCardTouched].value.split(" ")[0]);
-            card2 = Integer.parseInt(gameView.playCards[playCardTouched].value.split(" ")[1]);
-        } while(card1 < 100
-                && gameView.cards[card1/10][card1%10].isOccupied
-                && gameView.cards[card2/10][card2%10].isOccupied);
+        gameView.playCards[playCardTouched].value =
+                sharedpreferences.getString("deckCard" + nextCardInDeckIndex, "null");
+        ++nextCardInDeckIndex;
+
         // Resetting opacity
         for(int i=0; i<10; i++) {
             for(int j=0; j<10; j++) {
@@ -418,6 +443,163 @@ public class GameActivity extends Activity {
         int touchX = Integer.parseInt(tokens[2]);
         int touchY = Integer.parseInt(tokens[3]);
         gameView.updateBoardPut(color, touchX, touchY);
+        markIsSequenceForOpponent();
+    }
+
+    // Check the opponent's pieces to find it there is a sequence.
+    private void markIsSequenceForOpponent() {
+        // Checking all rows for 5 length sequence
+        for(int i = 0; i < 10; i++) {
+            for(int j = 0; j + 4 < 10; j++) {
+                Long occupier = gameView.cards[i][j].occupier;
+                if(occupier == -1 || occupier == myColor) {
+                    continue;
+                }
+                if(gameView.cards[i][j].occupier == occupier
+                        && gameView.cards[i][j + 1].occupier == occupier
+                        && gameView.cards[i][j + 2].occupier == occupier
+                        && gameView.cards[i][j + 3].occupier == occupier
+                        && gameView.cards[i][j + 4].occupier == occupier) {
+                    gameView.cards[i][j].isInSequence = true;
+                    gameView.cards[i][j + 1].isInSequence = true;
+                    gameView.cards[i][j + 2].isInSequence = true;
+                    gameView.cards[i][j + 3].isInSequence = true;
+                    gameView.cards[i][j + 4].isInSequence = true;
+                    Log.d("GameMove", "Found sequence");
+                }
+            }
+        }
+
+
+        // Checking all columns for 5 length sequence
+        for(int i = 0; i + 4 < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                Long occupier = gameView.cards[i][j].occupier;
+                if(occupier == -1 || occupier == myColor) {
+                    continue;
+                }
+                if (gameView.cards[i][j].occupier == occupier
+                        && gameView.cards[i + 1][j].occupier == occupier
+                        && gameView.cards[i + 2][j].occupier == occupier
+                        && gameView.cards[i + 3][j].occupier == occupier
+                        && gameView.cards[i + 4][j].occupier == occupier) {
+                    gameView.cards[i][j].isInSequence = true;
+                    gameView.cards[i + 1][j].isInSequence = true;
+                    gameView.cards[i + 2][j].isInSequence = true;
+                    gameView.cards[i + 3][j].isInSequence = true;
+                    gameView.cards[i + 4][j].isInSequence = true;
+                    Log.d("GameMove", "Found sequence");
+                }
+            }
+        }
+
+        // Checking all diagonals for length 5 sequence
+        for(int i = 0; i + 4 < 10; i++) {
+            for (int j = 0; j + 4 < 10; j++) {
+                Long occupier = gameView.cards[i][j].occupier;
+                if(occupier == -1 || occupier == myColor) {
+                    continue;
+                }
+                if (gameView.cards[i][j].occupier == occupier
+                        && gameView.cards[i + 1][j + 1].occupier == occupier
+                        && gameView.cards[i + 2][j + 2].occupier == occupier
+                        && gameView.cards[i + 3][j + 3].occupier == occupier
+                        && gameView.cards[i + 4][j + 4].occupier == occupier) {
+                    gameView.cards[i][j].isInSequence = true;
+                    gameView.cards[i + 1][j + 1].isInSequence = true;
+                    gameView.cards[i + 2][j + 2].isInSequence = true;
+                    gameView.cards[i + 3][j + 3].isInSequence = true;
+                    gameView.cards[i + 4][j + 4].isInSequence = true;
+                    Log.d("GameMove", "Found sequence");
+                }
+            }
+        }
+
+        for(int i = 0; i + 4 < 10; i++) {
+            for (int j = 9; j - 4 >= 0; j--) {
+                Long occupier = gameView.cards[i][j].occupier;
+                if(occupier == -1 || occupier == myColor) {
+                    continue;
+                }
+                if (gameView.cards[i][j].occupier == occupier
+                        && gameView.cards[i + 1][j - 1].occupier == occupier
+                        && gameView.cards[i + 2][j - 2].occupier == occupier
+                        && gameView.cards[i + 3][j - 3].occupier == occupier
+                        && gameView.cards[i + 4][j - 4].occupier == occupier) {
+                    gameView.cards[i][j].isInSequence = true;
+                    gameView.cards[i + 1][j - 1].isInSequence = true;
+                    gameView.cards[i + 2][j - 2].isInSequence = true;
+                    gameView.cards[i + 3][j - 3].isInSequence = true;
+                    gameView.cards[i + 4][j - 4].isInSequence = true;
+                    Log.d("GameMove", "Found sequence");
+                }
+            }
+        }
+
+        // Now special cases with 4 length sequences.
+        // Horizontal
+        for(int i = 0; i < 10; i += 9) {
+            for(int j = 1; j < 10; j += 4) {
+                Long occupier = gameView.cards[i][j].occupier;
+                if(occupier == -1 || occupier == myColor) {
+                    continue;
+                }
+                if (gameView.cards[i][j].occupier == occupier
+                        && gameView.cards[i][j + 1].occupier == occupier
+                        && gameView.cards[i][j + 2].occupier == occupier
+                        && gameView.cards[i][j + 3].occupier == occupier) {
+                    gameView.cards[i][j].isInSequence = true;
+                    gameView.cards[i][j + 1].isInSequence = true;
+                    gameView.cards[i][j + 2].isInSequence = true;
+                    gameView.cards[i][j + 3].isInSequence = true;
+                    Log.d("GameMove", "Found sequence");
+                }
+            }
+        }
+        // Vertical
+        for(int i = 0; i < 10; i += 9) {
+            for(int j = 1; j < 10; j += 4) {
+                Long occupier = gameView.cards[j][i].occupier;
+                if(occupier == -1 || occupier == myColor) {
+                    continue;
+                }
+                if (gameView.cards[j][i].occupier == occupier
+                        && gameView.cards[j + 1][i].occupier == occupier
+                        && gameView.cards[j + 2][i].occupier == occupier
+                        && gameView.cards[j + 3][i].occupier == occupier) {
+                    gameView.cards[j][i].isInSequence = true;
+                    gameView.cards[j + 1][i].isInSequence = true;
+                    gameView.cards[j + 2][i].isInSequence = true;
+                    gameView.cards[j + 3][i].isInSequence = true;
+                    Log.d("GameMove", "Found sequence");
+                }
+            }
+        }
+        // 11 22 33 44, 18 27 36 45, 55 66 77 88, 54 63 72 81
+        for(int i = 1; i < 6; i += 4) {
+            Long occupier = gameView.cards[i][i].occupier;
+            if (occupier != -1  && occupier != myColor && gameView.cards[i][i].occupier == occupier
+                    && gameView.cards[i + 1][i + 1].occupier == occupier
+                    && gameView.cards[i + 2][i + 2].occupier == occupier
+                    && gameView.cards[i + 3][i + 3].occupier == occupier) {
+                gameView.cards[i][i].isInSequence = true;
+                gameView.cards[i + 1][i + 1].isInSequence = true;
+                gameView.cards[i + 2][i + 2].isInSequence = true;
+                gameView.cards[i + 3][i + 3].isInSequence = true;
+                Log.d("GameMove", "Found sequence");
+            }
+            occupier = gameView.cards[i][9-i].occupier;
+            if (occupier != -1 && occupier != myColor && gameView.cards[i][9 - i].occupier == occupier
+                    && gameView.cards[i + 1][9 - i - 1].occupier == occupier
+                    && gameView.cards[i + 2][9 - i - 2].occupier == occupier
+                    && gameView.cards[i + 3][9 - i - 3].occupier == occupier) {
+                gameView.cards[i][9 - i].isInSequence = true;
+                gameView.cards[i + 1][9 - i - 1].isInSequence = true;
+                gameView.cards[i + 2][9 - i - 2].isInSequence = true;
+                gameView.cards[i + 3][9 - i - 3].isInSequence = true;
+                Log.d("GameMove", "Found sequence");
+            }
+        }
     }
 
     // Updates the gameboard by removing when one-eyed jack is played
@@ -660,7 +842,9 @@ public class GameActivity extends Activity {
         }
         if(sequencesCount == 2) {
             Log.d("GameMove", "My sequences 2");
+            result = true;
         }
+
         return result;
     }
 
@@ -673,14 +857,14 @@ public class GameActivity extends Activity {
                 .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         // Add won other player to database
-                        deletePlayerFromRoom();
+                        deletePlayerFromRoom(false);
                     }
                 })
                 .setNegativeButton("No", null)
                 .show();
     }
 
-    private void deletePlayerFromRoom() {
+    private void deletePlayerFromRoom(final boolean thisPlayerHasWon) {
         //Transaction to delete player (and the room if the player is the host).
         DatabaseReference roomsRef = database.getReference("rooms");
         Log.d("Room", "Deleting player");
@@ -706,10 +890,13 @@ public class GameActivity extends Activity {
                     Log.d("Room","Firebase player deletion failed.");
                 } else if(committed) {
                     Log.d("Room","Firebase player deletion succeeded.");
-                    gameRef.child("winner").setValue((myColor + 1)%2);
+                    if(!thisPlayerHasWon) {
+                        gameRef.child("winner").setValue((myColor + 1) % 2);
+                    }
                     sharedpreferences.clear();
                     Intent intent = new Intent(GameActivity.this, MainActivity.class);
                     startActivity(intent);
+                    finish();
                 }
                 else {
                     Log.d("Room", "Firebase transaction to delete player aborted");

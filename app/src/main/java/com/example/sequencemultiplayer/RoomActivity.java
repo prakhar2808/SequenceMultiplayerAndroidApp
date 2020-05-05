@@ -36,6 +36,7 @@ public class RoomActivity extends AppCompatActivity {
     DatabaseReference playersRef;
     DatabaseReference roomsRef;
     DatabaseReference gameStartedRef;
+    DatabaseReference playersCountRef;
 
     String roomID;
     String playerID;
@@ -47,6 +48,11 @@ public class RoomActivity extends AppCompatActivity {
 
     ArrayList<PlayerDetails> playerDetailsList;
     private PlayersInRoomAdapter adapter;
+
+    int playersCountInRoom;
+
+    //Boolean to overcome some race conditions
+    boolean leftRoom;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,8 +69,10 @@ public class RoomActivity extends AppCompatActivity {
 
         sharedpreferences = new SharedPreferencesHelper(this);
 
-        sharedpreferences.putString("last_activity", "RoomActivity");
         sharedpreferences.putString("gameStarted", "false");
+
+        playersCountInRoom = 1;
+        leftRoom = false;
 
         roomID = sharedpreferences.getString("roomID", "0");
         playerID = sharedpreferences.getString("playerID", "0");
@@ -123,7 +131,7 @@ public class RoomActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if(dataSnapshot.exists()
-                        && dataSnapshot.getValue() != null) {
+                        && dataSnapshot.getValue() != null && !leftRoom) {
                     sharedpreferences.putString("gameStarted", "true");
                     if((boolean)dataSnapshot.getValue()) {
                         Intent intent = new Intent(getApplicationContext(), GameActivity.class);
@@ -155,6 +163,9 @@ public class RoomActivity extends AppCompatActivity {
                     String imgProfilePicURL = ds.child("img_url").getValue().toString();
                     isHostPresent |= (boolean)ds.child("is_host").getValue();
                     playerDetailsList.add(new PlayerDetails(playerID, playerName, imgProfilePicURL));
+                }
+                if(dataSnapshot != null) {
+                    playersCountInRoom = playerDetailsList.size();
                 }
                 Log.d("Adapter", "Codebase 1");
                 RoomActivity.this.adapter = new PlayersInRoomAdapter(RoomActivity.this,
@@ -198,6 +209,7 @@ public class RoomActivity extends AppCompatActivity {
                 .setCancelable(false)
                 .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
+                        leftRoom = true;
                         deletePlayerFromRoom();
                     }
                 })
@@ -260,8 +272,13 @@ public class RoomActivity extends AppCompatActivity {
             @Override
             public void onComplete(@Nullable DatabaseError databaseError, boolean committed, @Nullable DataSnapshot dataSnapshot) {
                 if(committed) {
-                    sharedpreferences.putString("gameStarted", "true");
-                    database.getReference("rooms/"+roomID+"/game/game_started").setValue(true);
+                    Log.d("PlayersInRoom", playersCountInRoom + "");
+                    if(playersCountInRoom == 2 || true) {
+                        //TODO: Once game has started, no one should join. Hope that is ensured by
+                        //TODO: aborting the transaction on >2.
+                        sharedpreferences.putString("gameStarted", "true");
+                        database.getReference("rooms/" + roomID + "/game/game_started").setValue(true);
+                    }
                 }
             }
         });

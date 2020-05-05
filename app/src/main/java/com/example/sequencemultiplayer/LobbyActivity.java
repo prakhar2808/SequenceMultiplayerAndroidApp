@@ -90,8 +90,6 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
 
         sharedpreferences = new SharedPreferencesHelper(this);
 
-        sharedpreferences.putString("last_activity", "LobbyActivity");
-
         signOutButton = findViewById(R.id.signOutButton);
         imgProfilePic = findViewById(R.id.imgProfilePic);
         welcomeText = findViewById(R.id.welcomeText);
@@ -186,7 +184,7 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
                 else {
                     Long playerNumber = (Long) currentData.child("players_count").getValue() + 1;
                     currentData.child("players_count").setValue(playerNumber);
-                    if(playerNumber > 4)
+                    if(playerNumber > 2)
                         Transaction.abort();
                 }
                 currentData.child("players").child(playerID).child("name").setValue(playerName);
@@ -222,6 +220,7 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
         sharedpreferences.putString("isRoomHost", isRoomHost.toString());
 
         startActivity(intent);
+        finish();
     }
 
     // Event listener for room when user returns back from inside a room after leaving it.
@@ -332,5 +331,21 @@ public class LobbyActivity extends AppCompatActivity implements GoogleApiClient.
                                 false, false, false, false));
             }
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        Log.d("LobbyActivity", "onBackPressed Called");
+        new AlertDialog.Builder(this)
+                .setMessage("Are you sure you want to exit?")
+                .setCancelable(true)
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        // Add won other player to database
+                        LobbyActivity.super.onBackPressed();
+                    }
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 }

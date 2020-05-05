@@ -1,8 +1,6 @@
 package com.example.sequencemultiplayer;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -122,6 +120,13 @@ public class Deck {
     }
 
     void shuffleDeck() {
+        for(int i=0; i<10; i++) {
+            shuffleCollection();
+            shuffleManual();
+        }
+    }
+
+    void shuffleManual() {
         int n = deck.length;
         Random random = new Random();
         random.nextInt();
@@ -129,6 +134,9 @@ public class Deck {
             int change = i + random.nextInt(n - i);
             swap(i, change);
         }
+    }
+
+    void shuffleCollection() {
         List<String> shuffledDeck = Arrays.asList(deck);
         Collections.shuffle(Arrays.asList(shuffledDeck));
         shuffledDeck.toArray(deck);

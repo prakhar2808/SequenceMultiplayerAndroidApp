@@ -11,6 +11,9 @@ public class GameBoardCard {
     // The image is from (x1,y1) to (x2,y2) --> Top left to Bottom Right
     public int x1, y1, x2, y2;
 
+    //Centre
+    public int cx, cy;
+
     // Is occupied or not?
     boolean isOccupied;
 

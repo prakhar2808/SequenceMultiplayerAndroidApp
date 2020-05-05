@@ -1,10 +1,12 @@
 package com.example.sequencemultiplayer;
 
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -31,27 +33,30 @@ public class MainActivity extends FragmentActivity {
 
         setContentView(R.layout.activity_main);
 
-        sharedpreferences = new SharedPreferencesHelper(this);
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        googleAuthFragment = fragmentManager.findFragmentById(R.id.googleAuthFragment);
 
-        String last_activity = sharedpreferences.getString("last_activity", "MainActivity");
-
-        if(last_activity.equals("RoomActivity")) {
-            Log.d("Room", "Going to room");
-            Intent intent = new Intent(getApplicationContext(), RoomActivity.class);
-            startActivity(intent);
+        if (googleAuthFragment == null) {
+            googleAuthFragment = new GoogleAuthFragment();
+            fragmentManager.beginTransaction()
+                    .add(R.id.googleAuthFragment, googleAuthFragment)
+                    .commit();
         }
-        else {
-            sharedpreferences.putString("last_activity", "MainActivity");
+    }
 
-            FragmentManager fragmentManager = getSupportFragmentManager();
-            googleAuthFragment = fragmentManager.findFragmentById(R.id.googleAuthFragment);
-
-            if (googleAuthFragment == null) {
-                googleAuthFragment = new GoogleAuthFragment();
-                fragmentManager.beginTransaction()
-                        .add(R.id.googleAuthFragment, googleAuthFragment)
-                        .commit();
-            }
-        }
+    @Override
+    public void onBackPressed() {
+        Log.d("MainActivity", "onBackPressed Called");
+        new AlertDialog.Builder(this)
+                .setMessage("Are you sure you want to exit?")
+                .setCancelable(true)
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        // Add won other player to database
+                        MainActivity.super.onBackPressed();
+                    }
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 }
