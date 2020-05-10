@@ -24,6 +24,7 @@ public class GameView extends SurfaceView implements android.view.SurfaceHolder.
     private int screenHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
     GameBoardCard[][] cards;
     PlayCard[] playCards;
+    PlayCard lastCardPlayed;
     Context context;
 
     int lastCardModified;
@@ -81,6 +82,9 @@ public class GameView extends SurfaceView implements android.view.SurfaceHolder.
                     cardWidth, cardHeight, "");
 
         }
+        lastCardPlayed = new PlayCard(
+                BitmapFactory.decodeResource(getResources(), R.drawable.play_b2fv),
+                cardWidth, cardHeight, "");
         // Setting this as -1
         lastCardModified = -1;
         lastCardModifiedMarker = new Paint();
@@ -194,7 +198,17 @@ public class GameView extends SurfaceView implements android.view.SurfaceHolder.
             playCards[i].setCoordinates(left, top, right, bottom);
             playCards[i].draw(canvas, left, top);
         }
+        drawLastCard(canvas, cardWidth, cardHeight);
         drawWhoseTurn(canvas, leftBorder, paddingBetweenCardsHorizontal, bottomBorder, topBorder, cardHeight, paddingBetweenCardsVertical);
+    }
+
+    void drawLastCard(Canvas canvas, int cardWidth, int cardHeight) {
+        int left = screenWidth/2 - cardWidth/2;
+        int top = screenHeight/8 - cardHeight/2;
+        int right = screenWidth/2 + cardWidth/2;
+        int bottom = screenHeight/8 + cardHeight/2;
+        lastCardPlayed.setCoordinates(left, top, right, bottom);
+        lastCardPlayed.draw(canvas, left, top);
     }
 
     // Write whose turn
@@ -277,6 +291,21 @@ public class GameView extends SurfaceView implements android.view.SurfaceHolder.
                                     "play_card_" + x + "_" + y, "drawable",
                                             context.getPackageName())));
         }
+    }
+
+    // Update last card played
+    public void updateLastCardPlayed(String val1, String val2) {
+        lastCardPlayed.value = val1 + " " + val2;
+        int x = lastCardPlayed.value.charAt(0) - '0';
+        int y = lastCardPlayed.value.charAt(1) - '0';
+        if(val1.length() == 3) {
+            x = Integer.parseInt(val1.substring(0,2));
+            y = Integer.parseInt(val1.substring(2,3));
+        }
+        lastCardPlayed.setImage(BitmapFactory.decodeResource(getResources(),
+                context.getResources().getIdentifier(
+                        "play_card_" + x + "_" + y, "drawable",
+                        context.getPackageName())));
     }
 
     // Draw a line on a sequence

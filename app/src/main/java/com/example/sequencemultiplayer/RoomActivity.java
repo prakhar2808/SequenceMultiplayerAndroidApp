@@ -273,10 +273,11 @@ public class RoomActivity extends AppCompatActivity {
             public void onComplete(@Nullable DatabaseError databaseError, boolean committed, @Nullable DataSnapshot dataSnapshot) {
                 if(committed) {
                     Log.d("PlayersInRoom", playersCountInRoom + "");
-                    if(playersCountInRoom == 2 || true) {
+                    if(playersCountInRoom > 1 && playersCountInRoom < 4) {
                         //TODO: Once game has started, no one should join. Hope that is ensured by
                         //TODO: aborting the transaction on >2.
                         sharedpreferences.putString("gameStarted", "true");
+                        sharedpreferences.putString("numberOfPlayers", Integer.toString(playersCountInRoom));
                         database.getReference("rooms/" + roomID + "/game/game_started").setValue(true);
                     }
                 }

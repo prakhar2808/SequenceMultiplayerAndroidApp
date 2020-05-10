@@ -60,6 +60,9 @@ public class GameActivity extends Activity {
     //Play card selected index
     int playCardTouched;
 
+    //Number of players
+    int numberOfPlayers;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d("GameStart", "Started");
@@ -100,12 +103,14 @@ public class GameActivity extends Activity {
         winnerRef = database.getReference("rooms/" + roomID + "/game/winner");
         winnerEventListener();
 
+        numberOfPlayers = Integer.parseInt(sharedpreferences.getString("numberOfPlayers", "1"));
+        Log.d("Players", numberOfPlayers+"");
         // Assign colors to players.
         allotColorToPlayer();
     }
 
     // Transaction to allot colors to players, copy deck to local shared pref storage
-    // and after commit, call the function to insert "TURN 0" in moves database
+    // and after commit, the room owner calls the function to insert "TURN 0" in moves database.
     protected void allotColorToPlayer() {
         Log.d("GameStart", "Come to allot color");
         gameRef.runTransaction(new Transaction.Handler() {
@@ -151,12 +156,20 @@ public class GameActivity extends Activity {
         });
     }
 
+    // To add first game move so that the First Player's turn arrives.
     void addInitGameCommands() {
+        String nextCard = "12";
+        if(numberOfPlayers == 3) {
+            nextCard = "18";
+        }
+        final String nextCardInTransaction = nextCard;
+        final String totalPlayers = "" + numberOfPlayers;
         gameRef.runTransaction(new Transaction.Handler() {
             @NonNull
             @Override
             public Transaction.Result doTransaction(@NonNull MutableData mutableData) {
-                mutableData.child("moves").child("0").setValue("TURN 0 TAKE 12");
+                mutableData.child("moves").child("0").setValue("TURN 0 TAKE " + nextCardInTransaction
+                + " TOTAL " + totalPlayers);
                 return Transaction.success(mutableData);
             }
 
@@ -176,7 +189,7 @@ public class GameActivity extends Activity {
                     Log.d("GameMove", "Game ended. Winner is " + dataSnapshot.getValue());
                     String winner = "You win!";
                     if(!dataSnapshot.getValue().toString().equals(Long.toString(myColor))) {
-                        winner = "Your opponent wins!";
+                        winner = dataSnapshot.getValue().toString() + " wins!";
                     }
                     new AlertDialog.Builder(GameActivity.this)
                             .setMessage(winner+" Press OK to return to Lobby.")
@@ -222,6 +235,8 @@ public class GameActivity extends Activity {
                         checkIfAllHandCardsHaveAnEmptyOccurrence();
                         setScreenClickable();
                         ++lastMovePerformed;
+                        // Total players
+                        numberOfPlayers = Integer.parseInt(move.split(" ")[5]);
                         break;
                         // TODO_LATER : If next doesn't reply then next, ..
                     }
@@ -233,7 +248,7 @@ public class GameActivity extends Activity {
                     if(move.substring(0,3).equals("REM")) {
                         // Update GameBoard and remove appropriately.
                         String tokens[] = move.split(" ");
-                        updateGameBoardRemove(Integer.parseInt(tokens[1]), Integer.parseInt(tokens[2]));
+                        updateGameBoardRemove(tokens);
                     }
                     ++lastMovePerformed;
                 }
@@ -247,6 +262,7 @@ public class GameActivity extends Activity {
         });
     }
 
+    // Check if all hand cards are playable before a move, else pick a new card from deck.
     private void checkIfAllHandCardsHaveAnEmptyOccurrence() {
         for(int i=0; i<6; i++) {
             int card1 = Integer.parseInt(gameView.playCards[i].value.split(" ")[0]);
@@ -358,7 +374,10 @@ public class GameActivity extends Activity {
                     if(Integer.parseInt(tokens[0]) == card || Integer.parseInt(tokens[1]) == card) {
                         if(!gameView.cards[touchX][touchY].isOccupied) {
                             screenClickable = false;
-                            updateGameBoardPut(new String[]{"COL", Long.toString(myColor), Integer.toString(touchX), Integer.toString(touchY)});
+                            updateGameBoardPut(new String[]{"COL", Long.toString(myColor),
+                                    Integer.toString(touchX), Integer.toString(touchY),
+                                    gameView.playCards[playCardTouched].value.split(" ")[0],
+                                    gameView.playCards[playCardTouched].value.split(" ")[1]});
                             takeNextCardAndAddTurnToDatabase("PUT", touchX, touchY);
                         }
                     }
@@ -368,15 +387,21 @@ public class GameActivity extends Activity {
                                 && gameView.cards[touchX][touchY].occupier != myColor
                                 && !gameView.cards[touchX][touchY].isInSequence) {
                             screenClickable = false;
-                            updateGameBoardRemove(touchX, touchY);
-                             takeNextCardAndAddTurnToDatabase("REMOVE", touchX, touchY);
+                            updateGameBoardRemove(new String[]{"COL",
+                                    Integer.toString(touchX), Integer.toString(touchY),
+                                    gameView.playCards[playCardTouched].value.split(" ")[0],
+                                    gameView.playCards[playCardTouched].value.split(" ")[1]});
+                            takeNextCardAndAddTurnToDatabase("REMOVE", touchX, touchY);
                         }
                     }
                     // Two eyed-jack
                     else if(tokens[0].equals("110") || tokens[0].equals("111")) {
                         if(!gameView.cards[touchX][touchY].isOccupied) {
                             screenClickable = false;
-                            updateGameBoardPut(new String[]{"COL", Long.toString(myColor), Integer.toString(touchX), Integer.toString(touchY)});
+                            updateGameBoardPut(new String[]{"COL", Long.toString(myColor),
+                                    Integer.toString(touchX), Integer.toString(touchY),
+                                    gameView.playCards[playCardTouched].value.split(" ")[0],
+                                    gameView.playCards[playCardTouched].value.split(" ")[1]});
                             takeNextCardAndAddTurnToDatabase("PUT", touchX, touchY);
                         }
                     }
@@ -403,10 +428,13 @@ public class GameActivity extends Activity {
         Long localLastMovePerformed = Long.parseLong(sharedpreferences.getString("lastMovePerformed", "0"));
         if(op.equals("PUT")) {
             movesRef.child(Long.toString(localLastMovePerformed + 1)).setValue("PUT " + myColor
-                    + " " + touchX + " " + touchY);
+                    + " " + touchX + " " + touchY + " "
+                    + gameView.playCards[playCardTouched].value);
         }
         else if(op.equals("REMOVE")) {
-            movesRef.child(Long.toString(localLastMovePerformed + 1)).setValue("REMOVE " + touchX + " " + touchY);
+            movesRef.child(Long.toString(localLastMovePerformed + 1))
+                    .setValue("REMOVE " + touchX + " " + touchY + " "
+                    + gameView.playCards[playCardTouched].value);
         }
         Log.d("GameMove", "Performed move at " + touchX + " " + touchY);
 
@@ -430,7 +458,8 @@ public class GameActivity extends Activity {
 
         if(!hasWon()) {
             movesRef.child(Long.toString(localLastMovePerformed + 2))
-                    .setValue("TURN " + ((myColor + 1) % 2 + " TAKE " + nextCardInDeckIndex));
+                    .setValue("TURN " + ((myColor + 1) % numberOfPlayers
+                            + " TAKE " + nextCardInDeckIndex + " TOTAL " + numberOfPlayers));
         }
         else {
             gameRef.child("winner").setValue(myColor);
@@ -443,6 +472,7 @@ public class GameActivity extends Activity {
         int touchX = Integer.parseInt(tokens[2]);
         int touchY = Integer.parseInt(tokens[3]);
         gameView.updateBoardPut(color, touchX, touchY);
+        gameView.updateLastCardPlayed(tokens[4], tokens[5]);
         markIsSequenceForOpponent();
     }
 
@@ -603,7 +633,10 @@ public class GameActivity extends Activity {
     }
 
     // Updates the gameboard by removing when one-eyed jack is played
-    void updateGameBoardRemove(int touchX, int touchY) {
+    void updateGameBoardRemove(String tokens[]) {
+        int touchX = Integer.parseInt(tokens[1]);
+        int touchY = Integer.parseInt(tokens[2]);
+        gameView.updateLastCardPlayed(tokens[3], tokens[4]);
         gameView.updateBoardRemove(touchX, touchY);
     }
 
@@ -837,14 +870,12 @@ public class GameActivity extends Activity {
                 }
             }
         }
-        if(sequencesCount == 1) {
-            Log.d("GameMove", "My sequences 1");
-        }
-        if(sequencesCount == 2) {
-            Log.d("GameMove", "My sequences 2");
+        if(sequencesCount == 1 && numberOfPlayers == 3) {
             result = true;
         }
-
+        if(sequencesCount == 2 && numberOfPlayers == 2) {
+            result = true;
+        }
         return result;
     }
 
