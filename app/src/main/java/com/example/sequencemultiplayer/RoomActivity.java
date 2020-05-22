@@ -166,8 +166,9 @@ public class RoomActivity extends AppCompatActivity {
                 }
                 if(dataSnapshot != null) {
                     playersCountInRoom = playerDetailsList.size();
+                    sharedpreferences.putString("numberOfPlayers", Integer.toString(playersCountInRoom));
                 }
-                Log.d("Adapter", "Codebase 1");
+                Log.d("Adapter", "Codebase 1 " + playersCountInRoom);
                 RoomActivity.this.adapter = new PlayersInRoomAdapter(RoomActivity.this,
                                 R.layout.player_in_roomlist_row, playerDetailsList);
 
